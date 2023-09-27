@@ -2,6 +2,7 @@ use anyhow::{bail, Context};
 use serde::{Deserialize, Serialize};
 use serde_json::{Deserializer};
 use std::io::{StdoutLock, Write};
+use std::time::Instant;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Message {
@@ -26,6 +27,8 @@ enum Payload {
     EchoOk { echo: String },
     Init { node_id: String, node_ids: Vec<String> },
     InitOk {},
+    Generate {},
+    GenerateOk { id: String },
 }
 
 struct EchoNode {
@@ -34,6 +37,17 @@ struct EchoNode {
 }
 
 impl EchoNode {
+    fn gen_unique_id(&self, dest_node_id: &str) -> String {
+        /*
+        ID will be generated as a string consisting of:
+        1. Unix timestamp in seconds
+        2. Node ID it's generated on
+        3. Msg ID (auto-increment counter)
+        */
+        let curr_ts = Instant::now().elapsed().as_secs();
+        return curr_ts.to_string() + dest_node_id + self.id.to_string().as_str();
+    }
+
     pub fn step(
         &mut self,
         input: Message,
@@ -81,6 +95,28 @@ impl EchoNode {
             Payload::InitOk { .. } => {
                 // Raise exception if receiving an InitOk message
                 bail!("Received unexpected InitOk message!");
+            },
+            Payload::Generate { .. } => {
+                let unique_id = self.gen_unique_id(&input.dest);
+                let reply = Message {
+                    src: input.dest,
+                    dest: input.src,
+                    body: MessageBody {
+                        msg_id: Some(self.id),
+                        in_reply_to: match input.body.msg_id {
+                            None => None,
+                            Some(input_msg_id) => Some(input_msg_id),
+                        },
+                        payload: Payload::GenerateOk { id: unique_id },
+                    }
+                };
+                serde_json::to_writer(&mut *output, &reply).context("Failed to write reply data to output: stdout.");
+                output.write_all(b"\n").context("Failed to write newline to output: stdout.")?;
+                self.id += 1
+            },
+            Payload::GenerateOk { .. } => {
+                // Raise exception if receiving an GenerateOk message
+                bail!("Received unexpected GenerateOk message!");
             },
         };
         Ok(())
