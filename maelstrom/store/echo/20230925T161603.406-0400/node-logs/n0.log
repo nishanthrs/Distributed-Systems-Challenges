@@ -1,0 +1,4 @@
+Error: Maelstrom input could not be deserialized!
+
+Caused by:
+    missing field `msg_type` at line 1 column 97
