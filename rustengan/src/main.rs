@@ -2,7 +2,7 @@ use anyhow::{bail, Context};
 use serde::{Deserialize, Serialize};
 use serde_json::{Deserializer};
 use std::io::{StdoutLock, Write};
-use std::time::Instant;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Message {
@@ -43,9 +43,19 @@ impl EchoNode {
         1. Unix timestamp in seconds
         2. Node ID it's generated on
         3. Msg ID (auto-increment counter)
+        This format ensures that even if there are multiple nodes generating this ID every second,
+        these IDs are guaranteed to be unique and sortable
+
+        NOTE[1]: The timestamp is not needed for the purposes of the challenge.
+        However, it does allow the IDs to be sortable, which is a nice bonus feature.
+        NOTE[2]: Inherent flaw in this design is that it's not a fixed amount of bits (due to node and message ID).
+        We should use an integer of fixed size x bits for message ID.
+        Note that this means we'd have to reset the ID back to 0 every second,
+        meaning the limit of the system is generating 2^x IDs per second.
+        We can increase this by a factor of 1000x by storing the unix timestamp in milliseconds.
         */
-        let curr_ts = Instant::now().elapsed().as_secs();
-        return curr_ts.to_string() + dest_node_id + self.id.to_string().as_str();
+        let curr_ts = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards?").as_secs();
+        return format!("{}_{}_{}", curr_ts.to_string(), dest_node_id, self.id.to_string());
     }
 
     pub fn step(
@@ -134,9 +144,7 @@ fn main() -> anyhow::Result<()> {
     };
     for input in inputs {
         let input = input.context("Maelstrom input could not be deserialized!")?;
-        // println!("Input: {:?}", input);
         echo_node.step(input, &mut stdout).context("Node step function failed")?;
-        // println!("Output: {:?}", output);
     }
 
     Ok(())
