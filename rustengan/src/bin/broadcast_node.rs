@@ -2,7 +2,6 @@ use rustengan::*;
 
 use anyhow::{bail, Context};
 use serde::{Deserialize, Serialize};
-use serde_json::Deserializer;
 use std::collections::HashMap;
 use std::io::{StdoutLock, Write};
 
@@ -37,8 +36,8 @@ struct BroadcastNode {
     topology: HashMap<String, Vec<String>>,
 }
 
-impl BroadcastNode {
-    pub fn step(
+impl Node<BroadcastPayload> for BroadcastNode {
+    fn step(
         &mut self,
         input: Message<BroadcastPayload>,
         output: &mut StdoutLock,
@@ -120,7 +119,7 @@ impl BroadcastNode {
                 bail!("Received unexpected ReadOk message!");
             }
             BroadcastPayload::Topology { topology } => {
-                self.topology = topology;  // topology ptr is invalidated as owner of hashmap data
+                self.topology = topology; // topology ptr is invalidated as owner of hashmap data
                 let reply = Message {
                     src: input.dest,
                     dest: input.src,
@@ -150,20 +149,11 @@ impl BroadcastNode {
 }
 
 fn main() -> anyhow::Result<()> {
-    let stdin = std::io::stdin().lock();
-    let inputs = Deserializer::from_reader(stdin).into_iter::<Message<BroadcastPayload>>();
-    let mut stdout = std::io::stdout().lock();
-    let mut broadcast_node = BroadcastNode {
+    let broadcast_node = BroadcastNode {
         id: 0,
         node_id: String::new(), // I know this is bad code; will refactor this to only init node once Init message is sent
         messages: Vec::new(),
         topology: HashMap::new(),
     };
-    for input in inputs {
-        let input = input.context("Maelstrom input could not be deserialized!")?;
-        broadcast_node
-            .step(input, &mut stdout)
-            .context("Node step function failed")?;
-    }
-    Ok(())
+    main_loop(broadcast_node)
 }

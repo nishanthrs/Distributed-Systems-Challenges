@@ -17,3 +17,9 @@ Running Unique IDs Executable:
 # Locate Rust binary
 ./maelstrom test -w unique-ids --bin ../gossip_glomers/rustengan/target/debug/unique_id_node --time-limit 30 --rate 1000 --node-count 3 --availability total --nemesis partition
 ```
+Running Broadcast Executable:
+```bash
+# cd to maelstrom repo
+# Locate Rust binary
+./maelstrom test -w broadcast --bin ../gossip_glomers/rustengan/target/debug/broadcast_node --node-count 1 --time-limit 20 --rate 10
+```

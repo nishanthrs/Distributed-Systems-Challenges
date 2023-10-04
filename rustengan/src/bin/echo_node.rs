@@ -2,7 +2,6 @@ use rustengan::*;
 
 use anyhow::{bail, Context};
 use serde::{Deserialize, Serialize};
-use serde_json::Deserializer;
 use std::io::{StdoutLock, Write};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,12 +26,8 @@ struct EchoNode {
     id: usize,
 }
 
-impl EchoNode {
-    pub fn step(
-        &mut self,
-        input: Message<EchoPayload>,
-        output: &mut StdoutLock,
-    ) -> anyhow::Result<()> {
+impl Node<EchoPayload> for EchoNode {
+    fn step(&mut self, input: Message<EchoPayload>, output: &mut StdoutLock) -> anyhow::Result<()> {
         match input.body.payload {
             EchoPayload::Init { .. } => {
                 let reply = Message {
@@ -89,15 +84,6 @@ impl EchoNode {
 }
 
 fn main() -> anyhow::Result<()> {
-    let stdin = std::io::stdin().lock();
-    let inputs = Deserializer::from_reader(stdin).into_iter::<Message<EchoPayload>>();
-    let mut stdout = std::io::stdout().lock();
-    let mut echo_node = EchoNode { id: 0 };
-    for input in inputs {
-        let input = input.context("Maelstrom input could not be deserialized!")?;
-        echo_node
-            .step(input, &mut stdout)
-            .context("Node step function failed")?;
-    }
-    Ok(())
+    let echo_node = EchoNode { id: 0 };
+    main_loop(echo_node)
 }

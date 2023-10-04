@@ -2,7 +2,6 @@ use rustengan::*;
 
 use anyhow::{bail, Context};
 use serde::{Deserialize, Serialize};
-use serde_json::Deserializer;
 use std::io::{StdoutLock, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -55,8 +54,10 @@ impl UniqueIDNode {
             self.id.to_string()
         );
     }
+}
 
-    pub fn step(
+impl Node<UniqueIDPayload> for UniqueIDNode {
+    fn step(
         &mut self,
         input: Message<UniqueIDPayload>,
         output: &mut StdoutLock,
@@ -118,15 +119,6 @@ impl UniqueIDNode {
 }
 
 fn main() -> anyhow::Result<()> {
-    let stdin = std::io::stdin().lock();
-    let inputs = Deserializer::from_reader(stdin).into_iter::<Message<UniqueIDPayload>>();
-    let mut stdout = std::io::stdout().lock();
-    let mut unique_id_node = UniqueIDNode { id: 0 };
-    for input in inputs {
-        let input = input.context("Maelstrom input could not be deserialized!")?;
-        unique_id_node
-            .step(input, &mut stdout)
-            .context("Node step function failed")?;
-    }
-    Ok(())
+    let unique_id_node = UniqueIDNode { id: 0 };
+    main_loop(unique_id_node)
 }
